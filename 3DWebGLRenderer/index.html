@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>3D Viewer Welcome</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100vh;
+      background: radial-gradient(circle at top left, #0f2027, #203a43, #2c5364);
+      overflow: hidden;
+      position: relative;
+      color: #fff;
+    }
+
+    .background-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 600px;
+      margin: 5vh auto;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      padding: 32px;
+      text-align: center;
+      backdrop-filter: blur(20px);
+    }
+
+    .canvas-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    canvas#model-canvas {
+      display: block;
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      color: #87cefa;
+    }
+
+    p {
+      font-size: 1.05rem;
+      margin-bottom: 28px;
+      color: #ccc;
+    }
+
+    .btn {
+      background: linear-gradient(90deg, #4F8CFF, #A770EF);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 32px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn:hover {
+      transform: scale(1.05) translateY(-2px);
+      box-shadow: 0 8px 20px rgba(167, 112, 239, 0.4);
+    }
+
+    .footer {
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <!-- Background Particle Canvas -->
+  <canvas class="background-canvas" id="bg-canvas"></canvas>
+
+  <div class="container">
+    <div class="canvas-wrapper">
+      <canvas id="model-canvas" width="400" height="240"></canvas>
+    </div>
+    <h1>Welcome to 3D Viewer</h1>
+    <p>Explore, animate, and interact with 3D models in a fast and immersive web environment.</p>
+    <button class="btn" onclick="window.location.href='viewer.html'">Launch Viewer</button>
+    <div class="footer">&copy; 2025 Achraf Ghazouani</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js';
+
+    // ------------------ Particle Background with Cursor Interaction ------------------
+    const bgCanvas = document.getElementById('bg-canvas');
+    const bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, alpha: true });
+    bgRenderer.setSize(window.innerWidth, window.innerHeight);
+    const bgScene = new THREE.Scene();
+    const bgCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    bgCamera.position.z = 5;
+
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 1000;
+    const positions = new Float32Array(particlesCount * 3);
+    for (let i = 0; i < particlesCount * 3; i++) {
+      positions[i] = (Math.random() - 0.5) * 20;
+    }
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particlesMaterial = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.05 });
+    const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+    bgScene.add(particles);
+
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', (event) => {
+      mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+      mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+    });
+
+    function animateParticles() {
+      requestAnimationFrame(animateParticles);
+      particles.rotation.y += 0.0005 + mouseX * 0.001;
+      particles.rotation.x += 0.0003 + mouseY * 0.001;
+      bgRenderer.render(bgScene, bgCamera);
+    }
+
+    animateParticles();
+
+    window.addEventListener('resize', () => {
+      bgCamera.aspect = window.innerWidth / window.innerHeight;
+      bgCamera.updateProjectionMatrix();
+      bgRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ------------------ Foreground 3D Model Viewer ------------------
+    const canvas = document.getElementById('model-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+    camera.position.set(2, 2, 3);
+    camera.lookAt(0, 0, 0);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(3, 5, 5);
+    scene.add(ambient, dir);
+
+    const geometry = new THREE.TorusKnotGeometry(0.6, 0.2, 120, 16);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x4F8CFF,
+      metalness: 0.6,
+      roughness: 0.25
+    });
+    const torusKnot = new THREE.Mesh(geometry, material);
+    scene.add(torusKnot);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      torusKnot.rotation.y += 0.01;
+      torusKnot.rotation.x += 0.005;
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>

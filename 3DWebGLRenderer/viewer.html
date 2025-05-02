@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Model Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .ui-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+        }
+        .bg-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 250px;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn.secondary {
+            background: #2196F3;
+        }
+        .btn.secondary:hover {
+            background: #1976D2;
+        }
+        .btn.warning {
+            background: #FF9800;
+        }
+        .btn.warning:hover {
+            background: #F57C00;
+        }
+        .btn.warning.paused {
+            background: #4CAF50;
+        }
+        .btn.warning.paused:hover {
+            background: #45a049;
+        }
+        #file-input {
+            display: none;
+        }
+        .loading {
+            display: none;
+            margin-top: 10px;
+            color: #666;
+        }
+        .loading.active {
+            display: block;
+        }
+        .light-controls, .bg-controls-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .control-group label {
+            font-size: 14px;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #ddd;
+            border-radius: 3px;
+            outline: none;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4CAF50;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        .control-group input[type="color"] {
+            width: 100%;
+            height: 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .control-group .value {
+            font-size: 12px;
+            color: #666;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            margin: 0;
+        }
+        .animation-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .animation-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            background: white;
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .animation-select:hover {
+            border-color: #4CAF50;
+        }
+        .animation-select:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+        .preset-colors {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .preset-color {
+            width: 100%;
+            aspect-ratio: 1;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .preset-color:hover {
+            transform: scale(1.1);
+        }
+        .camera-btn, .transform-btn, .helper-btn, .material-btn, .guide-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 1002;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        .camera-btn {
+            background: #2196F3;
+            right: 290px;
+        }
+        
+        .camera-btn:hover {
+            transform: scale(1.1);
+            background: #1976D2;
+        }
+        
+        .camera-btn.active {
+            background: #1976D2;
+            transform: scale(1.1);
+        }
+        
+        .camera-btn.active:hover {
+            background: #1565C0;
+        }
+        .transform-btn {
+            background: #4CAF50;
+            right: 230px;
+        }
+        
+        .transform-btn:hover {
+            transform: scale(1.1);
+            background: #45a049;
+        }
+        .transform-btn.active {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+        
+        .transform-btn.active:hover {
+            background: #3d8b40;
+        }
+        .helper-btn {
+            background: #9C27B0;
+            right: 170px;
+        }
+        
+        .helper-btn:hover {
+            transform: scale(1.1);
+            background: #7B1FA2;
+        }
+        .helper-btn.active {
+            background: #7B1FA2;
+            transform: scale(1.1);
+        }
+        
+        .helper-btn.active:hover {
+            background: #6A1B9A;
+        }
+        .material-btn {
+            background: #FF9800;
+            right: 110px;
+        }
+        .material-btn:hover {
+            transform: scale(1.1);
+            background: #F57C00;
+        }
+        .material-btn.active {
+            background: #F57C00;
+            transform: scale(1.1);
+        }
+        .guide-btn {
+            background: #9C27B0;
+            right: 50px;
+        }
+        
+        .guide-btn:hover {
+            transform: scale(1.1);
+            background: #7B1FA2;
+        }
+        .guide-btn.active {
+            background: #7B1FA2;
+            transform: scale(1.1);
+        }
+        
+        .guide-btn.active:hover {
+            background: #6A1B9A;
+        }
+        .camera-panel {
+            position: fixed;
+            right: -300px;
+            top: 20px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            transition: right 0.3s ease;
+        }
+        
+        .camera-panel.active {
+            right: 20px;
+        }
+
+        .camera-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .camera-panel-header h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s ease;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .camera-presets {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .camera-preset-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+            transition: all 0.3s ease;
+        }
+        
+        .camera-preset-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .camera-preset-btn.active {
+            background: #2196F3;
+            color: white;
+        }
+
+        .transform-panel {
+            position: fixed;
+            right: -300px;
+            top: 20px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            transition: right 0.3s ease;
+        }
+        
+        .transform-panel.active {
+            right: 20px;
+        }
+
+        .reset-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        .transform-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .transform-group-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin: 0;
+        }
+
+        .helper-panel {
+            position: fixed;
+            right: -300px;
+            top: 20px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            transition: right 0.3s ease;
+        }
+        
+        .helper-panel.active {
+            right: 20px;
+        }
+
+        .toggle-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-item:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .toggle-item.active {
+            background: #9C27B0;
+            color: white;
+        }
+
+        .toggle-item.active:hover {
+            background: #7B1FA2;
+        }
+
+        .material-panel, .export-panel {
+            position: fixed;
+            right: -300px;
+            top: 20px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            transition: right 0.3s ease;
+        }
+
+        .material-panel.active, .export-panel.active {
+            right: 20px;
+        }
+
+        .material-controls, .export-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .export-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .export-section h4 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .preset-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .preset-btn, .export-btn {
+            background: rgba(94, 0, 0, 0.05);
+            border: none;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #333;
+            transition: all 0.3s ease;
+        }
+
+        .preset-btn:hover, .export-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .preset-btn.active {
+            background: #FF9800;
+            color: white;
+        }
+
+        .guide-panel {
+            position: fixed;
+            right: -300px;
+            top: 20px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            transition: right 0.3s ease;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        
+        .guide-panel.active {
+            right: 20px;
+        }
+
+        .guide-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .guide-section {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .guide-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .guide-section ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #666;
+        }
+
+        .guide-section li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .guide-section li:last-child {
+            margin-bottom: 0;
+        }
+
+        .bg-color-btn {
+            position: fixed;
+            right: 350px;
+            bottom: 20px;
+            z-index: 1002;
+            background: #E91E63;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        
+        .bg-color-btn:hover {
+            transform: scale(1.1);
+            background: #C2185B;
+        }
+
+        .bg-color-btn.active {
+            background: #C2185B;
+            transform: scale(1.1);
+        }
+        
+        .bg-color-btn.active:hover {
+            background: #AD1457;
+        }
+
+        .bg-color-panel {
+            position: fixed;
+            right: -300px;
+            top: 20px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            transition: right 0.3s ease;
+        }
+        
+        .bg-color-panel.active {
+            right: 20px;
+        }
+
+        /* Floating export button styling */
+        #export-btn {
+            position: fixed;
+            right: 410px;
+            bottom: 20px;
+            z-index: 1002;
+            background: #FF5722;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        #export-btn:hover {
+            transform: scale(1.1);
+            background: #F4511E;
+        }
+        #export-btn.active {
+            background: #F4511E;
+            transform: scale(1.1);
+        }
+        #export-btn.active:hover {
+            background: #E64A19;
+        }
+        .copyright-text {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            z-index: 1002;
+            color: #888;
+            font-size: 14px;
+            background: rgba(255,255,255,0.7);
+            padding: 6px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui-container">
+        <input type="file" id="file-input" accept=".glb" />
+        <button class="btn" onclick="document.getElementById('file-input').click()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 16L12 8M12 8L15 11M12 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Upload GLB Model
+        </button>
+        <button class="btn secondary" id="screenshot-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 9C3 7.89543 3.89543 7 5 7H5.5C6.12951 7 6.72229 6.70361 7.1 6.2L8.9 3.8C9.27771 3.29639 9.87049 3 10.5 3H13.5C14.1295 3 14.7223 3.29639 15.1 3.8L16.9 6.2C17.2777 6.70361 17.8705 7 18.5 7H19C20.1046 7 21 7.89543 21 9V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Take Screenshot
+        </button>
+        <div class="animation-controls">
+            <select id="animation-select" class="animation-select">
+                <option value="">Select Animation</option>
+            </select>
+            <button class="btn warning" id="animation-toggle-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Play Animation
+            </button>
+            <!-- Animation Timeline -->
+            <div class="animation-timeline-group" style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+                <input type="range" id="animation-timeline" min="0" max="1" step="0.001" value="0" style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                    <span id="animation-current-time">0:00</span>
+                    <span id="animation-total-time">0:00</span>
+                </div>
+            </div>
+        </div>
+        <div class="loading" id="loading">Loading model...</div>
+        
+        <h3 class="section-title">Lighting Controls</h3>
+        <div class="light-controls">
+            <div class="control-group">
+                <label>
+                    Ambient Light Intensity
+                    <span class="value" id="ambient-intensity-value">0.5</span>
+                </label>
+                <input type="range" id="ambient-intensity" min="0" max="1" step="0.1" value="0.5">
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    Directional Light Intensity
+                    <span class="value" id="directional-intensity-value">1.0</span>
+                </label>
+                <input type="range" id="directional-intensity" min="0" max="2" step="0.1" value="1.0">
+            </div>
+            
+            <div class="control-group">
+                <label>Directional Light Color</label>
+                <input type="color" id="directional-color" value="#ffffff">
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    Directional Light X
+                    <span class="value" id="directional-x-value">5</span>
+                </label>
+                <input type="range" id="directional-x" min="-10" max="10" step="0.5" value="5">
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    Directional Light Y
+                    <span class="value" id="directional-y-value">5</span>
+                </label>
+                <input type="range" id="directional-y" min="-10" max="10" step="0.5" value="5">
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    Directional Light Z
+                    <span class="value" id="directional-z-value">5</span>
+                </label>
+                <input type="range" id="directional-z" min="-10" max="10" step="0.5" value="5">
+            </div>
+        </div>
+    </div>
+
+    <button class="camera-btn" id="camera-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12C2 12 5.63636 5 12 5C18.3636 5 22 12 22 12C22 12 18.3636 19 12 19C5.63636 19 2 12 2 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+    
+    <div class="camera-panel" id="camera-panel">
+        <div class="camera-panel-header">
+            <h3>Camera Settings</h3>
+            <button class="close-btn" id="close-camera-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="camera-presets">
+            <button class="camera-preset-btn" data-preset="front">Front View</button>
+            <button class="camera-preset-btn" data-preset="back">Back View</button>
+            <button class="camera-preset-btn" data-preset="left">Left View</button>
+            <button class="camera-preset-btn" data-preset="right">Right View</button>
+            <button class="camera-preset-btn" data-preset="top">Top View</button>
+            <button class="camera-preset-btn" data-preset="bottom">Bottom View</button>
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Camera Distance
+                <span class="value" id="camera-distance-value">3.0</span>
+            </label>
+            <input type="range" id="camera-distance" min="1" max="10" step="0.1" value="3.0">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Field of View
+                <span class="value" id="camera-fov-value">75</span>
+            </label>
+            <input type="range" id="camera-fov" min="30" max="120" step="1" value="75">
+        </div>
+    </div>
+    <button class="transform-btn" id="transform-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+    
+    <div class="transform-panel" id="transform-panel">
+        <div class="camera-panel-header">
+            <h3>Model Transform</h3>
+            <button class="close-btn" id="close-transform-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="transform-group">
+            <h4 class="transform-group-title">Scale</h4>
+            <div class="control-group">
+                <label>
+                    Scale
+                    <span class="value" id="scale-value">1.0</span>
+                </label>
+                <input type="range" id="scale" min="0.1" max="5" step="0.1" value="1.0">
+            </div>
+        </div>
+
+        <div class="transform-group">
+            <h4 class="transform-group-title">Rotation</h4>
+            <div class="control-group">
+                <label>
+                    X Rotation
+                    <span class="value" id="rotation-x-value">0</span>
+                </label>
+                <input type="range" id="rotation-x" min="0" max="360" step="1" value="0">
+            </div>
+            <div class="control-group">
+                <label>
+                    Y Rotation
+                    <span class="value" id="rotation-y-value">0</span>
+                </label>
+                <input type="range" id="rotation-y" min="0" max="360" step="1" value="0">
+            </div>
+            <div class="control-group">
+                <label>
+                    Z Rotation
+                    <span class="value" id="rotation-z-value">0</span>
+                </label>
+                <input type="range" id="rotation-z" min="0" max="360" step="1" value="0">
+            </div>
+        </div>
+
+        <button class="reset-btn" id="reset-transform">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M9 12L12 9L15 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 15V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Reset Transform
+        </button>
+    </div>
+    <button class="helper-btn" id="helper-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 3H21V21H3V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3 9H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3 15H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 3V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 3V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+    
+    <div class="helper-panel" id="helper-panel">
+        <div class="camera-panel-header">
+            <h3>Grid & Helpers</h3>
+            <button class="close-btn" id="close-helper-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="toggle-group">
+            <div class="toggle-item" id="grid-toggle">
+                <span>Grid</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="toggle-item" id="axes-toggle">
+                <span>Axes Helper</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="toggle-item" id="split-view-toggle">
+                <span>Split View</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="toggle-item" id="wireframe-toggle">
+                <span>Wireframe</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="toggle-item" id="measure-toggle">
+                <span>Measure Tool</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="split-view-controls" id="split-view-controls" style="display: none;">
+            <div class="control-group">
+                <label>
+                    Split Position
+                    <span class="value" id="split-position-value">50%</span>
+                </label>
+                <input type="range" id="split-position" min="0" max="100" step="1" value="50">
+            </div>
+        </div>
+    </div>
+
+    <button class="material-btn" id="material-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+    <div class="material-panel" id="material-panel">
+        <div class="camera-panel-header">
+            <h3>Material Editor</h3>
+            <button class="close-btn" id="close-material-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="material-controls">
+            <div class="control-group">
+                <label>Material Type</label>
+                <select id="material-type" class="animation-select">
+                    <option value="standard">Standard</option>
+                    <option value="basic">Basic</option>
+                    <option value="phong">Phong</option>
+                    <option value="lambert">Lambert</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Color</label>
+                <input type="color" id="material-color" value="#ffffff">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Metalness
+                    <span class="value" id="metalness-value">0.0</span>
+                </label>
+                <input type="range" id="metalness" min="0" max="1" step="0.01" value="0">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Roughness
+                    <span class="value" id="roughness-value">0.5</span>
+                </label>
+                <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Opacity
+                    <span class="value" id="opacity-value">1.0</span>
+                </label>
+                <input type="range" id="opacity" min="0" max="1" step="0.01" value="1">
+            </div>
+
+            <div class="control-group">
+                <label>Material Presets</label>
+                <div class="preset-buttons">
+                    <button class="preset-btn" data-preset="chrome">Chrome</button>
+                    <button class="preset-btn" data-preset="glass">Glass</button>
+                    <button class="preset-btn" data-preset="plastic">Plastic</button>
+                    <button class="preset-btn" data-preset="metal">Metal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   
+
+    <div class="export-panel" id="export-panel">
+        <div class="camera-panel-header">
+            <h3>Export Options</h3>
+            <button class="close-btn" id="close-export-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="export-controls">
+            <div class="export-section">
+                <h4>Screenshot</h4>
+                <div class="preset-buttons">
+                    <button class="export-btn" id="screenshot-hd">HD (1920x1080)</button>
+                    <button class="export-btn" id="screenshot-4k">4K (3840x2160)</button>
+                    <!-- Custom Size Screenshot UI -->
+                    <div class="custom-screenshot-group" style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
+                        <input type="number" id="custom-screenshot-width" min="1" value="1920" style="width: 70px; padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;" placeholder="Width">
+                        <span style="font-size: 14px; color: #888;">x</span>
+                        <input type="number" id="custom-screenshot-height" min="1" value="1080" style="width: 70px; padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;" placeholder="Height">
+                        <button class="export-btn" id="screenshot-custom-ui" style="padding: 4px 10px; font-size: 13px; min-width: unset;">Take Screenshot</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="export-section">
+                <h4>Export Model</h4>
+                <div class="preset-buttons">
+                    <button class="export-btn" id="export-glb">GLB</button>
+                    <button class="export-btn" id="export-obj">OBJ</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="export-with-animation" checked>
+                        Export with animation
+                    </label>
+                </div>
+            </div>
+
+            <div class="export-section">
+                <h4>Save Scene</h4>
+                <div class="preset-buttons">
+                    <button class="export-btn" id="save-camera">Save Camera Position</button>
+                    <button class="export-btn" id="import-camera">Import Camera Position</button>
+                    <button class="export-btn" id="save-materials">Save Materials</button>
+                    <button class="export-btn" id="save-scene">Save Full Scene</button>
+                    <button class="export-btn" id="import-scene">Import Full Scene</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="guide-btn" id="guide-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+    
+    <button class="export-btn" id="export-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+
+    <div class="guide-panel" id="guide-panel">
+        <div class="camera-panel-header">
+            <h3>Usage Guide</h3>
+            <button class="close-btn" id="close-guide-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="guide-content">
+            <div class="guide-section">
+                <h4>Basic Controls</h4>
+                <ul>
+                    <li>Left Mouse: Rotate view</li>
+                    <li>Right Mouse: Pan view</li>
+                    <li>Mouse Wheel: Zoom in/out</li>
+                </ul>
+            </div>
+
+            <div class="guide-section">
+                <h4>Tools</h4>
+                <ul>
+                    <li>📷 Camera: Adjust view and save positions</li>
+                    <li>🔄 Transform: Scale and rotate model</li>
+                    <li>📏 Helper: Grid, axes, and measurement tools</li>
+                    <li>🎨 Material: Change material properties</li>
+                    <li>💾 Export: Save screenshots and model files</li>
+                </ul>
+            </div>
+
+            <div class="guide-section">
+                <h4>Lighting</h4>
+                <ul>
+                    <li>Adjust ambient and directional light intensity</li>
+                    <li>Change light color and position</li>
+                    <li>Use environment presets for quick setups</li>
+                </ul>
+            </div>
+
+            <div class="guide-section">
+                <h4>Background</h4>
+                <ul>
+                    <li>Choose from preset colors</li>
+                    <li>Use color picker for custom colors</li>
+                    <li>Select environment presets for complete setups</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <button class="bg-color-btn" id="bg-color-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 6V18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6 12H18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+    <div class="bg-color-panel" id="bg-color-panel">
+        <div class="camera-panel-header">
+            <h3>Background Color</h3>
+            <button class="close-btn" id="close-bg-color-panel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="bg-controls-content">
+            <div class="control-group">
+                <label>Background Color</label>
+                <input type="color" id="bg-color" value="#f0f0f0">
+            </div>
+            <div class="control-group">
+                <label>Preset Colors</label>
+                <div class="preset-colors">
+                    <button class="preset-color" style="background: #f0f0f0;" data-color="#f0f0f0"></button>
+                    <button class="preset-color" style="background: #000000;" data-color="#000000"></button>
+                    <button class="preset-color" style="background: #ffffff;" data-color="#ffffff"></button>
+                    <button class="preset-color" style="background: #2c3e50;" data-color="#2c3e50"></button>
+                    <button class="preset-color" style="background: #34495e;" data-color="#34495e"></button>
+                    <button class="preset-color" style="background: #7f8c8d;" data-color="#7f8c8d"></button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Environment Presets</label>
+                <select id="environment-preset" class="animation-select">
+                    <option value="studio">Studio</option>
+                    <option value="sunset">Sunset</option>
+                    <option value="night">Night</option>
+                    <option value="morning">Morning</option>
+                    <option value="dramatic">Dramatic</option>
+                    <option value="warm">Warm</option>
+                    <option value="cool">Cool</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="copyright-text">All Right Reserver , Achraf Ghazouani 2025</div>
+    <script type="module" src="/src/main.js"></script>
+    <script>
+        function createWelcomeAnimation() {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Create a container for the welcome animation
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '100%';
+            container.style.height = '100%';
+            container.style.zIndex = '9999';
+            container.style.display = 'flex';
+            container.style.justifyContent = 'center';
+            container.style.alignItems = 'center';
+            container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            document.body.appendChild(container);
+
+            // Create a button to enter the main viewer
+            const enterButton = document.createElement('button');
+            enterButton.textContent = 'Enter Viewer';
+            enterButton.style.padding = '10px 20px';
+            enterButton.style.fontSize = '18px';
+            enterButton.style.backgroundColor = '#4CAF50';
+            enterButton.style.color = 'white';
+            enterButton.style.border = 'none';
+            enterButton.style.borderRadius = '5px';
+            enterButton.style.cursor = 'pointer';
+            enterButton.style.position = 'absolute';
+            enterButton.style.bottom = '20px';
+            enterButton.style.left = '50%';
+            enterButton.style.transform = 'translateX(-50%)';
+            enterButton.onclick = function() {
+                container.remove();
+                renderer.domElement.remove();
+            };
+            container.appendChild(enterButton);
+
+            // Create geometries for morphing
+            const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const sphereGeometry = new THREE.SphereGeometry(0.7, 32, 32);
+            const torusGeometry = new THREE.TorusGeometry(0.5, 0.2, 16, 100);
+
+            // Create a mesh with the cube geometry
+            const mesh = new THREE.Mesh(cubeGeometry, new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+            scene.add(mesh);
+
+            // Position the camera
+            camera.position.z = 5;
+
+            // Animation variables
+            let currentGeometry = cubeGeometry;
+            let targetGeometry = sphereGeometry;
+            let morphFactor = 0;
+            const morphSpeed = 0.01;
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Rotate the mesh
+                mesh.rotation.x += 0.01;
+                mesh.rotation.y += 0.01;
+
+                // Morph between geometries
+                morphFactor += morphSpeed;
+                if (morphFactor >= 1) {
+                    morphFactor = 0;
+                    if (currentGeometry === cubeGeometry) {
+                        currentGeometry = sphereGeometry;
+                        targetGeometry = torusGeometry;
+                    } else if (currentGeometry === sphereGeometry) {
+                        currentGeometry = torusGeometry;
+                        targetGeometry = cubeGeometry;
+                    } else {
+                        currentGeometry = cubeGeometry;
+                        targetGeometry = sphereGeometry;
+                    }
+                }
+
+                // Update the geometry
+                mesh.geometry = currentGeometry.clone();
+                mesh.geometry.morphTargets = [targetGeometry];
+                mesh.geometry.morphTargets[0].name = 'target';
+                mesh.geometry.computeMorphNormals();
+                mesh.morphTargetInfluences = [morphFactor];
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        }
+
+        // Call the function when the page loads
+        window.onload = createWelcomeAnimation;
+
+        // Export functionality
+        document.getElementById('export-glb').addEventListener('click', function() {
+            const includeAnimation = document.getElementById('export-with-animation').checked;
+            const exporter = new THREE.GLTFExporter();
+            const options = {
+                binary: true,
+                includeAnimation: includeAnimation
+            };
+            exporter.parse(scene, function(gltf) {
+                const blob = new Blob([gltf], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'model.glb';
+                a.click();
+                URL.revokeObjectURL(url);
+            }, options);
+        });
+
+        document.getElementById('export-obj').addEventListener('click', function() {
+            const includeAnimation = document.getElementById('export-with-animation').checked;
+            // Here you would call your export function with the includeAnimation flag
+            console.log('Exporting OBJ with animation:', includeAnimation);
+        });
+
+        // Import functionality
+        document.getElementById('file-input').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const loader = new THREE.GLTFLoader();
+                    loader.parse(e.target.result, '', function(gltf) {
+                        scene.clear();
+                        scene.add(gltf.scene);
+                        if (gltf.animations && gltf.animations.length > 0) {
+                            console.log('Model imported with animations:', gltf.animations);
+                        } else {
+                            console.log('Model imported without animations.');
+                        }
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+    </script>
+</body>
+</html> 
